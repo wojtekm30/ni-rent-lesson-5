@@ -1,4 +1,14 @@
-from src.models import Apartment, ApartmentSettlement, Bill, Parameters, Tenant, Transfer
+import calendar
+from datetime import date
+from src.models import (
+    Apartment,
+    ApartmentSettlement,
+    Bill,
+    Parameters,
+    Tenant,
+    TenantSettlement,
+    Transfer,
+)
 
 
 class Manager:
@@ -69,3 +79,39 @@ class Manager:
             total_bills_pln=total_bills,
             total_due_pln=total_due,
         )
+
+    def create_tenant_settlements(
+        self, apartment_settlement: ApartmentSettlement
+    ) -> list[TenantSettlement]:
+        year = apartment_settlement.year
+        month = apartment_settlement.month
+        month_start = date(year, month, 1)
+        month_end = date(year, month, calendar.monthrange(year, month)[1])
+
+        active_tenants = [
+            tenant
+            for tenant in self.tenants.values()
+            if tenant.apartment == apartment_settlement.apartment
+            and date.fromisoformat(tenant.date_agreement_from) <= month_end
+            and date.fromisoformat(tenant.date_agreement_to) >= month_start
+        ]
+
+        if not active_tenants:
+            return []
+
+        bills_share = apartment_settlement.total_bills_pln / len(active_tenants)
+        settlement_id = f"{apartment_settlement.apartment}-{year}-{month:02d}"
+
+        return [
+            TenantSettlement(
+                tenant=tenant.name,
+                apartment_settlement=settlement_id,
+                month=month,
+                year=year,
+                rent_pln=0.0,
+                bills_pln=bills_share,
+                total_due_pln=bills_share,
+                balance_pln=-bills_share,
+            )
+            for tenant in active_tenants
+        ]
