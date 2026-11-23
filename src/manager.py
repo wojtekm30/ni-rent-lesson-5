@@ -47,3 +47,25 @@ class Manager:
             total += bill.amount_pln
 
         return total
+
+    def create_apartment_settlement(
+        self, apartment_key: str, year: int, month: int
+    ) -> ApartmentSettlement | None:
+        if month is None or month < 1 or month > 12:
+            raise ValueError(f"Invalid month: {month}. Month must be between 1 and 12.")
+
+        total_bills = self.get_apartment_costs(apartment_key, year=year, month=month)
+        if total_bills is None:
+            return None
+
+        total_rent = 0.0
+        total_due = total_rent - total_bills
+
+        return ApartmentSettlement(
+            apartment=apartment_key,
+            month=month,
+            year=year,
+            total_rent_pln=total_rent,
+            total_bills_pln=total_bills,
+            total_due_pln=total_due,
+        )
