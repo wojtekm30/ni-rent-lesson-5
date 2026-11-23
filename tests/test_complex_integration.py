@@ -68,3 +68,35 @@ def test_apartment_costs_with_optional_parameters():
 
     costs = manager.get_apartment_costs('apart-polanka')
     assert costs == 3532.0
+
+
+def test_create_apartment_settlement_tdd():
+    from src.models import ApartmentSettlement
+
+    manager = Manager(Parameters())
+
+    # 1. Mieszkanie z rachunkami w 01/2025 (przelewy = 0.0, rachunki = 910.0 -> bilans = -910.0)
+    settlement_jan = manager.create_apartment_settlement("apart-polanka", 2025, 1)
+    assert isinstance(settlement_jan, ApartmentSettlement)
+    assert settlement_jan.apartment == "apart-polanka"
+    assert settlement_jan.year == 2025
+    assert settlement_jan.month == 1
+    assert settlement_jan.total_rent_pln == 0.0
+    assert settlement_jan.total_bills_pln == 910.0
+    assert settlement_jan.total_due_pln == -910.0
+
+    # 2. Mieszkanie bez rachunków w 02/2025 (bilans = 0.0)
+    settlement_feb = manager.create_apartment_settlement("apart-polanka", 2025, 2)
+    assert isinstance(settlement_feb, ApartmentSettlement)
+    assert settlement_feb.apartment == "apart-polanka"
+    assert settlement_feb.year == 2025
+    assert settlement_feb.month == 2
+    assert settlement_feb.total_rent_pln == 0.0
+    assert settlement_feb.total_bills_pln == 0.0
+    assert settlement_feb.total_due_pln == 0.0
+
+    # 3. Nieistniejące mieszkanie oraz błędny miesiąc
+    assert manager.create_apartment_settlement("nie-istnieje", 2025, 1) is None
+
+    with pytest.raises(ValueError):
+        manager.create_apartment_settlement("apart-polanka", 2025, 13)
