@@ -100,3 +100,78 @@ def test_create_apartment_settlement_tdd():
 
     with pytest.raises(ValueError):
         manager.create_apartment_settlement("apart-polanka", 2025, 13)
+
+
+def test_create_tenant_settlements_tdd():
+    from src.models import Tenant, TenantSettlement
+
+    manager = Manager(Parameters())
+    settlement = manager.create_apartment_settlement("apart-polanka", 2025, 1)
+
+    # 1. Mieszkanie ma 2 aktualnych najemców (plus 1 nieaktualnego z 2024 r.) -> podział 910.0 / 2 = 455.0
+    manager.tenants = {
+        "t1": Tenant(
+            name="Jan Nowak",
+            apartment="apart-polanka",
+            room="room-bigger",
+            rent_pln=1500.0,
+            deposit_pln=1500.0,
+            date_agreement_from="2024-09-01",
+            date_agreement_to="2025-08-31",
+        ),
+        "t2": Tenant(
+            name="Adam Kowalski",
+            apartment="apart-polanka",
+            room="room-medium",
+            rent_pln=1300.0,
+            deposit_pln=1300.0,
+            date_agreement_from="2025-01-01",
+            date_agreement_to="2025-06-30",
+        ),
+        "t3_expired": Tenant(
+            name="Ewa Adamska",
+            apartment="apart-polanka",
+            room="room-smaller",
+            rent_pln=1100.0,
+            deposit_pln=1100.0,
+            date_agreement_from="2024-01-01",
+            date_agreement_to="2024-12-31",
+        ),
+    }
+
+    settlements_two = manager.create_tenant_settlements(settlement)
+    assert len(settlements_two) == 2
+    assert all(isinstance(s, TenantSettlement) for s in settlements_two)
+    assert {s.tenant for s in settlements_two} == {"Jan Nowak", "Adam Kowalski"}
+    assert settlements_two[0].bills_pln == 455.0
+    assert settlements_two[1].bills_pln == 455.0
+    assert settlements_two[0].total_due_pln == 455.0
+    assert settlements_two[0].balance_pln == -455.0
+    assert settlements_two[0].month == 1
+    assert settlements_two[0].year == 2025
+
+    # 2. Mieszkanie ma tylko 1 aktualnego najemcę -> 100% rachunków (910.0)
+    manager.tenants = {
+        "t1": Tenant(
+            name="Jan Nowak",
+            apartment="apart-polanka",
+            room="room-bigger",
+            rent_pln=1500.0,
+            deposit_pln=1500.0,
+            date_agreement_from="2024-09-01",
+            date_agreement_to="2025-08-31",
+        ),
+    }
+
+    settlements_one = manager.create_tenant_settlements(settlement)
+    assert len(settlements_one) == 1
+    assert settlements_one[0].tenant == "Jan Nowak"
+    assert settlements_one[0].bills_pln == 910.0
+    assert settlements_one[0].total_due_pln == 910.0
+    assert settlements_one[0].balance_pln == -910.0
+
+    # 3. Mieszkanie nie ma żadnych najemców -> brak rozliczeń (pusta lista)
+    manager.tenants = {}
+    settlements_none = manager.create_tenant_settlements(settlement)
+    assert settlements_none == []
+    assert len(settlements_none) == 0
